@@ -1,0 +1,5 @@
+django==6.0.4
+djangorestframework==3.17.1
+django-cors-headers==4.9.0
+numpy==2.4.4
+pillow==12.2.0
