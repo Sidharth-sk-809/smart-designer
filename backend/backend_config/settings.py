@@ -29,7 +29,7 @@ DEBUG = os.getenv('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
-    'smart-designer-api.onrender.com',
+    'smart-designer.onrender.com',
 ] + os.getenv('ALLOWED_HOSTS', '').split(',')
 
 
@@ -143,7 +143,6 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5176',
     'http://localhost:5177',
     'https://smart-designer.onrender.com',
-    'https://smart-designer-api.onrender.com',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -158,7 +157,6 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5176',
     'http://localhost:5177',
     'https://smart-designer.onrender.com',
-    'https://smart-designer-api.onrender.com',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
