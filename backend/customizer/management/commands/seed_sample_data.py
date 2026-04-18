@@ -22,18 +22,18 @@ class Command(BaseCommand):
             },
         )
 
-        # Approximate coordinates based on the screenshot provided by the user
-        # Image is roughly 400-500px wide. Box is centered.
+        # Actual dimensions of Screenshot_2026-04-18_at_11.20.59AM.png are 392x650
+        # Centering a 200px width box: (392 - 200) / 2 = 96
         ProductView.objects.update_or_create(
             product=product,
             label="Front View",
             view_key="front",
             defaults={
                 "base_image": "catalog/Screenshot_2026-04-18_at_11.20.59AM.png",
-                "print_area_x": 100,
-                "print_area_y": 120,
+                "print_area_x": 96,
+                "print_area_y": 170,
                 "print_area_width": 200,
-                "print_area_height": 240,
+                "print_area_height": 280,
                 "sort_order": 1,
                 "is_active": True,
             },

@@ -12,13 +12,13 @@ const DEMO_PRODUCT = {
       id: 'demo-view',
       label: 'Front View',
       image_url: `${API_ROOT}/media/catalog/Screenshot_2026-04-18_at_11.20.59AM.png`,
-      print_area: { x: 100, y: 120, width: 200, height: 240 },
-      image_width: 500,
-      image_height: 600,
+      print_area: { x: 96, y: 170, width: 200, height: 280 },
+      image_width: 392,
+      image_height: 650,
     }
   ]
 }
-const INITIAL_PLACEMENT = { x: 0.16, y: 0.1, width: 0.68 }
+const INITIAL_PLACEMENT = { x: 0.1, y: 0.1, width: 0.8 }
 const INITIAL_AREA = { x: 0.26, y: 0.22, width: 0.48, height: 0.42 }
 const AREA_MIN_SIZE = 0.08
 const VIEW_OPTIONS = [
@@ -211,7 +211,7 @@ function App() {
         }
   const liveAreaReady = printAreaSize.width > 0 && printAreaSize.height > 0
   const maxWidthRatio = Math.min(
-    0.94,
+    1.0,
     designAspectRatio * (sizingFrame.height / sizingFrame.width),
   )
   const minWidthRatio = Math.min(0.12, maxWidthRatio)
