@@ -3,7 +3,7 @@ import { Rnd } from 'react-rnd'
 import './App.css'
 
 const API_ROOT = import.meta.env.VITE_API_BASE_URL ?? ''
-const DEMO_DESIGN_URL = '/demo/electronics-design.png'
+const DEFAULT_DESIGN_URL = `${API_ROOT}/media/samples/%20-3.jpg`
 const INITIAL_PLACEMENT = { x: 0.16, y: 0.1, width: 0.68 }
 const INITIAL_AREA = { x: 0.26, y: 0.22, width: 0.48, height: 0.42 }
 const AREA_MIN_SIZE = 0.08
@@ -268,12 +268,21 @@ function App() {
       const nextProducts = data.products ?? []
       setProducts(nextProducts)
 
-      // Start with blank slate - no default product/view selected
-      const nextSelectedProductId = preferredProductId ?? selectedProductId
+      // Auto-select first product if none selected
+      let nextSelectedProductId = preferredProductId ?? selectedProductId
+      if (!nextSelectedProductId && nextProducts.length > 0) {
+        nextSelectedProductId = String(nextProducts[0].id)
+      }
+
       const nextSelectedProduct = nextProducts.find(
         (product) => String(product.id) === nextSelectedProductId,
       )
-      const nextSelectedViewId = preferredViewId ?? selectedViewId
+
+      // Auto-select first view if none selected
+      let nextSelectedViewId = preferredViewId ?? selectedViewId
+      if (!nextSelectedViewId && nextSelectedProduct?.views?.length > 0) {
+        nextSelectedViewId = String(nextSelectedProduct.views[0].id)
+      }
 
       setSelectedProductId(nextSelectedProductId)
       setSelectedViewId(nextSelectedViewId)
@@ -824,18 +833,16 @@ function App() {
     fetchProducts()
   }, [])
 
-  // Demo design auto-load disabled - start with blank slate
-  // Uncomment the useEffect below to restore auto-loading demo design
-  /*
   useEffect(() => {
     let ignore = false
 
     async function loadDemoDesign() {
       try {
-        const response = await fetch(DEMO_DESIGN_URL)
+        const response = await fetch(DEFAULT_DESIGN_URL)
+        if (!response.ok) throw new Error('Design not found')
         const blob = await response.blob()
-        const file = new File([blob], 'electronics-design.png', {
-          type: blob.type || 'image/png',
+        const file = new File([blob], 'default-design.jpg', {
+          type: blob.type || 'image/jpeg',
         })
         const asset = await readImageFile(file)
 
@@ -850,7 +857,7 @@ function App() {
         })
       } catch {
         if (!ignore) {
-          setRenderError('Could not load the demo design image.')
+          setRenderError('Could not load the default design image.')
         }
       }
     }
@@ -860,8 +867,7 @@ function App() {
     return () => {
       ignore = true
     }
-  }, [])
-  */
+  }, [DEFAULT_DESIGN_URL])
 
   useEffect(() => {
     return () => {
