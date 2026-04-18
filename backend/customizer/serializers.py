@@ -33,10 +33,24 @@ class ProductViewSerializer(serializers.ModelSerializer):
         return obj.base_image.url
 
     def get_image_width(self, obj):
-        return getattr(obj.base_image, "width", 0)
+        try:
+            if obj.base_image:
+                # Try to get width from the file
+                img = Image.open(obj.base_image.path)
+                return img.width
+        except Exception:
+            pass
+        return 0
 
     def get_image_height(self, obj):
-        return getattr(obj.base_image, "height", 0)
+        try:
+            if obj.base_image:
+                # Try to get height from the file
+                img = Image.open(obj.base_image.path)
+                return img.height
+        except Exception:
+            pass
+        return 0
 
     def get_print_area(self, obj):
         return {
