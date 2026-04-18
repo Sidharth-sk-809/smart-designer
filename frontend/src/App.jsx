@@ -4,6 +4,20 @@ import './App.css'
 
 const API_ROOT = import.meta.env.VITE_API_BASE_URL ?? ''
 const DEFAULT_DESIGN_URL = `${API_ROOT}/media/samples/%20-3.jpg`
+const DEMO_PRODUCT = {
+  id: 'demo',
+  name: 'Classic Black Hoodie (Demo)',
+  views: [
+    {
+      id: 'demo-view',
+      label: 'Front View',
+      image_url: `${API_ROOT}/media/catalog/Screenshot_2026-04-18_at_11.20.59AM.png`,
+      print_area: { x: 100, y: 120, width: 200, height: 240 },
+      image_width: 500,
+      image_height: 600,
+    }
+  ]
+}
 const INITIAL_PLACEMENT = { x: 0.16, y: 0.1, width: 0.68 }
 const INITIAL_AREA = { x: 0.26, y: 0.22, width: 0.48, height: 0.42 }
 const AREA_MIN_SIZE = 0.08
@@ -265,7 +279,12 @@ function App() {
       }
 
       const data = await response.json()
-      const nextProducts = data.products ?? []
+      let nextProducts = data.products ?? []
+      
+      // If the database is empty, provide the default hoodie in the UI immediately
+      if (nextProducts.length === 0) {
+        nextProducts = [DEMO_PRODUCT]
+      }
       setProducts(nextProducts)
 
       // Auto-select first product if none selected
