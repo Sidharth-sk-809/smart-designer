@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-z#o-^5kqnfvyd0e5w&+n+*yc&qyvuc44-z=bm6w3)_@se7de89'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-z#o-^5kqnfvyd0e5w&+n+*yc&qyvuc44-z=bm6w3)_@se7de89')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+ALLOWED_HOSTS = [
+    '127.0.0.1',
+    'localhost',
+    'smart-designer-backend.onrender.com',  # Replace with your Render domain
+] + os.getenv('ALLOWED_HOSTS', '').split(',')
 
 
 # Application definition
@@ -137,6 +142,8 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5175',
     'http://localhost:5176',
     'http://localhost:5177',
+    'https://smart-designer-frontend.onrender.com',  # Replace with your frontend Render domain
+    'https://smart-designer-backend.onrender.com',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -150,6 +157,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5175',
     'http://localhost:5176',
     'http://localhost:5177',
+    'https://smart-designer-frontend.onrender.com',
+    'https://smart-designer-backend.onrender.com',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
