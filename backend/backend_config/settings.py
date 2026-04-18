@@ -32,6 +32,11 @@ ALLOWED_HOSTS = [
     'smart-designer.onrender.com',
 ]
 
+# Add Render external hostname if available
+RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
 # Add any additional hosts from environment variable
 additional_hosts = os.getenv('ALLOWED_HOSTS', '').strip()
 if additional_hosts:
@@ -54,6 +59,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -86,10 +92,16 @@ WSGI_APPLICATION = 'backend_config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# Use persistent path on Render if available
+PERSISTENT_DATA_DIR = '/var/data'
+IS_ON_RENDER = os.path.exists(PERSISTENT_DATA_DIR)
+
+DATABASE_PATH = os.path.join(PERSISTENT_DATA_DIR, 'db.sqlite3') if IS_ON_RENDER else BASE_DIR / 'db.sqlite3'
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': DATABASE_PATH,
     }
 }
 
@@ -132,7 +144,7 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(PERSISTENT_DATA_DIR, 'media') if IS_ON_RENDER else BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
