@@ -30,7 +30,12 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
     'smart-designer.onrender.com',
-] + os.getenv('ALLOWED_HOSTS', '').split(',')
+]
+
+# Add any additional hosts from environment variable
+additional_hosts = os.getenv('ALLOWED_HOSTS', '').strip()
+if additional_hosts:
+    ALLOWED_HOSTS.extend([h.strip() for h in additional_hosts.split(',') if h.strip()])
 
 
 # Application definition
