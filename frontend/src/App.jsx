@@ -12,7 +12,7 @@ const DEMO_PRODUCT = {
       id: 'demo-view',
       label: 'Front View',
       image_url: `${API_ROOT}/media/catalog/Screenshot_2026-04-18_at_11.20.59AM.png`,
-      print_area: { x: 96, y: 170, width: 200, height: 280 },
+      print_area: { x: 80, y: 205, width: 232, height: 280 },
       image_width: 392,
       image_height: 650,
     }
