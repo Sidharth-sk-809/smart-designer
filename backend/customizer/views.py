@@ -108,6 +108,7 @@ class RenderPreviewView(APIView):
             x_ratio = float(request.data.get("x_ratio", 0))
             y_ratio = float(request.data.get("y_ratio", 0))
             width_ratio = float(request.data.get("width_ratio", 0.6))
+            rotation = float(request.data.get("rotation", 0))
         except (TypeError, ValueError):
             return Response(
                 {"detail": "Invalid layout payload."},
@@ -153,6 +154,7 @@ class RenderPreviewView(APIView):
             x_ratio=x_ratio,
             y_ratio=y_ratio,
             width_ratio=width_ratio,
+            rotation=rotation,
             print_area=print_area_override,
         )
 

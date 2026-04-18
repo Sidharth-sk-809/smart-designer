@@ -126,6 +126,7 @@ function App() {
   const [selectedViewId, setSelectedViewId] = useState('')
   const [design, setDesign] = useState(null)
   const [placement, setPlacement] = useState(INITIAL_PLACEMENT)
+  const [rotation, setRotation] = useState(0)
   const [editorPrintArea, setEditorPrintArea] = useState({ ...INITIAL_AREA })
   const [editorCanvasSize, setEditorCanvasSize] = useState({ width: 0, height: 0 })
   const [printAreaSize, setPrintAreaSize] = useState({ width: 0, height: 0 })
@@ -136,6 +137,7 @@ function App() {
   const [isRendering, setIsRendering] = useState(false)
   const [renderError, setRenderError] = useState('')
   const [renderedPreviewUrl, setRenderedPreviewUrl] = useState('')
+  const [layerPreviewUrl, setLayerPreviewUrl] = useState('')
 
   const [builderMode, setBuilderMode] = useState('existing')
   const [builderProductId, setBuilderProductId] = useState('')
@@ -152,8 +154,15 @@ function App() {
   const printAreaRef = useRef(null)
   const builderCanvasRef = useRef(null)
   const designRef = useRef(null)
+  const layerPreviewCanvasRef = useRef(null)
   const renderedPreviewRef = useRef('')
   const builderSlotsRef = useRef(builderSlots)
+  const cachedImagesRef = useRef({
+    productImg: null,
+    designImg: null,
+    productSrc: null,
+    designSrc: null,
+  })
 
   const selectedProduct = products.find(
     (product) => String(product.id) === selectedProductId,
@@ -259,23 +268,14 @@ function App() {
       const nextProducts = data.products ?? []
       setProducts(nextProducts)
 
-      const nextSelectedProductId =
-        preferredProductId ??
-        (nextProducts.some((product) => String(product.id) === selectedProductId)
-          ? selectedProductId
-          : String(nextProducts[0]?.id ?? ''))
-      const nextSelectedProduct =
-        nextProducts.find((product) => String(product.id) === nextSelectedProductId) ??
-        nextProducts[0]
-      const nextSelectedViewId =
-        preferredViewId ??
-        (nextSelectedProduct?.views?.some(
-          (view) => String(view.id) === selectedViewId,
-        )
-          ? selectedViewId
-          : String(nextSelectedProduct?.views?.[0]?.id ?? ''))
+      // Start with blank slate - no default product/view selected
+      const nextSelectedProductId = preferredProductId ?? selectedProductId
+      const nextSelectedProduct = nextProducts.find(
+        (product) => String(product.id) === nextSelectedProductId,
+      )
+      const nextSelectedViewId = preferredViewId ?? selectedViewId
 
-      setSelectedProductId(nextSelectedProduct ? String(nextSelectedProduct.id) : '')
+      setSelectedProductId(nextSelectedProductId)
       setSelectedViewId(nextSelectedViewId)
 
       const nextBuilderProductId =
@@ -317,6 +317,23 @@ function App() {
       revokeObjectUrl(currentUrl)
       return ''
     })
+  }
+
+  function deleteDesign() {
+    // Revoke object URLs
+    if (design?.objectUrl) {
+      revokeObjectUrl(design.objectUrl)
+    }
+    
+    // Clear design and reset states
+    setDesign(null)
+    setPlacement(clampPlacement(INITIAL_PLACEMENT))
+    setRotation(0)
+    setLayerPreviewUrl((currentUrl) => {
+      revokeObjectUrl(currentUrl)
+      return ''
+    })
+    resetRenderedPreview()
   }
 
   function updateBuilderSlot(slotKey, updater) {
@@ -434,6 +451,128 @@ function App() {
     }
   }
 
+  function redrawLayerPreview() {
+    // Fast redraw using cached images - no loading
+    if (!selectedView || !design?.src) {
+      return
+    }
+
+    const cache = cachedImagesRef.current
+    const canvas = layerPreviewCanvasRef.current
+    if (!canvas || !cache.productImg || !cache.designImg) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    // Set canvas to match product image dimensions
+    canvas.width = cache.productImg.width
+    canvas.height = cache.productImg.height
+
+    // Draw product image
+    ctx.drawImage(cache.productImg, 0, 0)
+
+    // Calculate design position and size based on placement
+    const printArea = {
+      x: selectedView.print_area.x,
+      y: selectedView.print_area.y,
+      width: selectedView.print_area.width,
+      height: selectedView.print_area.height,
+    }
+
+    // Calculate design dimensions maintaining aspect ratio
+    const designAspect = cache.designImg.naturalWidth / cache.designImg.naturalHeight
+    const targetWidth = Math.round(printArea.width * placement.width)
+    const targetHeight = Math.round(targetWidth / designAspect)
+
+    // Calculate position within print area
+    // placement.x and placement.y are normalized coordinates (0-1) within the print area
+    const targetX = Math.round(printArea.x + printArea.width * placement.x)
+    const targetY = Math.round(printArea.y + printArea.height * placement.y)
+
+    // Draw design on top
+    ctx.globalAlpha = 0.9
+    ctx.drawImage(cache.designImg, targetX, targetY, targetWidth, targetHeight)
+    ctx.globalAlpha = 1.0
+
+    // Convert canvas to blob with error handling
+    try {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob)
+          setLayerPreviewUrl((currentUrl) => {
+            if (currentUrl) URL.revokeObjectURL(currentUrl)
+            return url
+          })
+        }
+      }, 'image/png')
+    } catch (error) {
+      console.warn('Canvas toBlob failed (expected for cross-origin images):', error)
+      // Fallback: use toDataURL instead
+      const url = canvas.toDataURL('image/png')
+      setLayerPreviewUrl((currentUrl) => {
+        if (currentUrl) URL.revokeObjectURL(currentUrl)
+        return url
+      })
+    }
+  }
+
+  function loadLayerPreviewImages() {
+    // Load images only when they change, not on every position update
+    if (!selectedView || !design?.src) {
+      return
+    }
+
+    const cache = cachedImagesRef.current
+    let imagesLoaded = 0
+
+    const checkBothLoaded = () => {
+      imagesLoaded++
+      if (imagesLoaded === 2) {
+        // Both images loaded, now redraw
+        redrawLayerPreview()
+      }
+    }
+
+    // Load product image if not cached or if source changed
+    if (!cache.productImg || cache.productSrc !== selectedView.image_url) {
+      const productImg = new Image()
+      productImg.crossOrigin = 'anonymous'
+      productImg.onload = () => {
+        cache.productImg = productImg
+        cache.productSrc = selectedView.image_url
+        checkBothLoaded()
+      }
+      productImg.onerror = () => {
+        console.error('Failed to load product image')
+      }
+      productImg.src = selectedView.image_url
+    } else {
+      imagesLoaded++
+    }
+
+    // Load design image if not cached or if source changed
+    if (!cache.designImg || cache.designSrc !== design.src) {
+      const designImg = new Image()
+      designImg.crossOrigin = 'anonymous'
+      designImg.onload = () => {
+        cache.designImg = designImg
+        cache.designSrc = design.src
+        checkBothLoaded()
+      }
+      designImg.onerror = () => {
+        console.error('Failed to load design image')
+      }
+      designImg.src = design.src
+    } else {
+      imagesLoaded++
+    }
+
+    // If both are cached, redraw immediately
+    if (imagesLoaded === 2) {
+      redrawLayerPreview()
+    }
+  }
+
   async function handleRenderPreview() {
     if (!selectedView || !design?.file) {
       return
@@ -445,6 +584,7 @@ function App() {
     payload.append('x_ratio', placement.x.toFixed(4))
     payload.append('y_ratio', placement.y.toFixed(4))
     payload.append('width_ratio', placement.width.toFixed(4))
+    payload.append('rotation', rotation.toFixed(1))
     payload.append('print_area_x_ratio', editorPrintArea.x.toFixed(4))
     payload.append('print_area_y_ratio', editorPrintArea.y.toFixed(4))
     payload.append('print_area_width_ratio', editorPrintArea.width.toFixed(4))
@@ -684,6 +824,9 @@ function App() {
     fetchProducts()
   }, [])
 
+  // Demo design auto-load disabled - start with blank slate
+  // Uncomment the useEffect below to restore auto-loading demo design
+  /*
   useEffect(() => {
     let ignore = false
 
@@ -718,6 +861,7 @@ function App() {
       ignore = true
     }
   }, [])
+  */
 
   useEffect(() => {
     return () => {
@@ -802,6 +946,16 @@ function App() {
     setPlacement((currentPlacement) => clampPlacement(currentPlacement))
   }, [selectedView?.id, designAspectRatio, printAreaSize.width, printAreaSize.height])
 
+  useEffect(() => {
+    // Load images when design or view changes
+    loadLayerPreviewImages()
+  }, [selectedView?.id, design?.src])
+
+  useEffect(() => {
+    // Just redraw with cached images when placement changes (smooth, no reloading)
+    redrawLayerPreview()
+  }, [placement, rotation])
+
   const printAreaStyle = selectedView
     ? {
         left: `${editorPrintArea.x * 100}%`,
@@ -813,6 +967,7 @@ function App() {
 
   return (
     <main className="app-shell">
+      <canvas ref={layerPreviewCanvasRef} style={{ display: 'none' }} />
       <section className="hero-band">
         <div>
           <p className="eyebrow">Phase 2 Setup UX</p>
@@ -868,7 +1023,7 @@ function App() {
           </label>
 
           <label className="upload-card" htmlFor="design-upload">
-            <span className="upload-title">Upload design</span>
+            <span className="upload-title">{design ? 'Change Design' : 'Upload Design'}</span>
             <span className="upload-copy">
               Transparent PNG works best for the editor and preview export.
             </span>
@@ -880,16 +1035,29 @@ function App() {
             />
           </label>
 
-          <button
-            className="secondary-action"
-            type="button"
-            onClick={() => {
-              setPlacement(clampPlacement(INITIAL_PLACEMENT))
-              resetRenderedPreview()
-            }}
-          >
-            Reset design placement
-          </button>
+          <div className="design-actions">
+            <button
+              className="secondary-action"
+              type="button"
+              onClick={() => {
+                setPlacement(clampPlacement(INITIAL_PLACEMENT))
+                setRotation(0)
+                resetRenderedPreview()
+              }}
+              disabled={!design}
+            >
+              Reset Design Placement
+            </button>
+
+            <button
+              className="secondary-action danger"
+              type="button"
+              onClick={deleteDesign}
+              disabled={!design}
+            >
+              Delete Design
+            </button>
+          </div>
 
           <div className="panel-heading compact">
             <p className="section-tag">Controller</p>
@@ -954,6 +1122,21 @@ function App() {
               }}
             />
             <strong>{formatPercent(placement.width)}</strong>
+          </label>
+
+          <label className="field">
+            <span>Rotation</span>
+            <input
+              type="range"
+              min="-45"
+              max="45"
+              step="1"
+              value={rotation}
+              onChange={(event) => {
+                setRotation(Number(event.target.value))
+              }}
+            />
+            <strong>{rotation}°</strong>
           </label>
 
           <button
@@ -1173,33 +1356,62 @@ function App() {
         <aside className="panel preview-panel">
           <div className="panel-heading">
             <p className="section-tag">Output</p>
-            <h2>Server-rendered preview</h2>
+            <h2>Preview & Render</h2>
           </div>
 
-          {renderedPreviewUrl ? (
-            <>
+          <div className="preview-section">
+            <h3>Layer Preview (Product + Design)</h3>
+            {layerPreviewUrl ? (
               <img
-                className="rendered-preview"
-                src={renderedPreviewUrl}
-                alt="Rendered t-shirt preview"
+                className="layer-preview"
+                src={layerPreviewUrl}
+                alt="Layer preview"
               />
-              <a
-                className="download-link"
-                href={renderedPreviewUrl}
-                download="mockup-preview.png"
-              >
-                Download PNG
-              </a>
-            </>
-          ) : (
-            <div className="preview-placeholder">
-              <p>Generate a server preview after placing the artwork.</p>
-              <p>
-                The preview now respects the current print area on the canvas,
-                even before you save it.
-              </p>
-            </div>
-          )}
+            ) : (
+              <div className="preview-placeholder">
+                <p>Upload a design and adjust its placement on the canvas above.</p>
+              </div>
+            )}
+
+            <button
+              className="primary-action"
+              type="button"
+              onClick={handleRenderPreview}
+              disabled={!selectedView || !design?.file || isRendering}
+            >
+              {isRendering ? 'Generating...' : 'Generate Blended Preview'}
+            </button>
+
+            {renderError ? <p className="status error">{renderError}</p> : null}
+          </div>
+
+          <div className="preview-section">
+            <h3>OpenCV Blended Result</h3>
+            {renderedPreviewUrl ? (
+              <>
+                <img
+                  className="rendered-preview"
+                  src={renderedPreviewUrl}
+                  alt="Rendered t-shirt preview"
+                />
+                <a
+                  className="download-link"
+                  href={renderedPreviewUrl}
+                  download="mockup-preview.png"
+                >
+                  Download PNG
+                </a>
+              </>
+            ) : (
+              <div className="preview-placeholder">
+                <p>Click "Generate Blended Preview" to create the final mockup with realistic blending.</p>
+                <p>
+                  The OpenCV engine will blend the design with product shadows, apply wrinkle displacement,
+                  and feather the edges for a realistic result.
+                </p>
+              </div>
+            )}
+          </div>
 
           <div className="scope-card">
             <h3>What changed</h3>

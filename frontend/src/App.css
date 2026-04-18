@@ -190,6 +190,26 @@
   background: rgba(16, 42, 42, 0.06);
 }
 
+.secondary-action:disabled,
+.download-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondary-action.danger {
+  color: #b42318;
+  background: rgba(180, 35, 24, 0.08);
+}
+
+.secondary-action.danger:hover:not(:disabled) {
+  background: rgba(180, 35, 24, 0.15);
+}
+
+.design-actions {
+  display: grid;
+  gap: 10px;
+}
+
 .primary-action:hover,
 .secondary-action:hover,
 .download-link:hover {
@@ -684,4 +704,31 @@
   .metrics-row {
     grid-template-columns: 1fr;
   }
+}
+
+.preview-section {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid rgba(19, 31, 31, 0.08);
+}
+
+.preview-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.preview-section h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-strong);
+}
+
+.layer-preview {
+  width: 100%;
+  border-radius: 22px;
+  border: 1px solid rgba(19, 31, 31, 0.08);
+  background: rgba(255, 255, 255, 0.5);
 }

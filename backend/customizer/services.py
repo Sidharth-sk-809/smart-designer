@@ -3,6 +3,9 @@ from io import BytesIO
 import numpy as np
 from PIL import Image, ImageOps
 
+from .processor.engine import render_design_on_product
+from .processor.utils import pil_to_cv2, cv2_to_pil
+
 
 def clamp(value: float, minimum: float, maximum: float) -> float:
     return max(minimum, min(value, maximum))
@@ -36,10 +39,26 @@ def render_mockup(
     x_ratio: float,
     y_ratio: float,
     width_ratio: float,
+    rotation: float = 0,
     print_area: dict | None = None,
 ) -> bytes:
+    """
+    Render design on product with OpenCV-based realistic blending.
+    
+    Args:
+        product_view: ProductView model instance
+        design_file: Uploaded design file
+        x_ratio: Horizontal position (0.0-1.0)
+        y_ratio: Vertical position (0.0-1.0)
+        width_ratio: Design width relative to print area (0.0-1.0)
+        rotation: Design rotation angle in degrees (-45 to 45)
+        print_area: Optional print area override dict with x, y, width, height
+    
+    Returns:
+        PNG image bytes
+    """
     with Image.open(product_view.base_image.path) as base_handle:
-        base_image = ImageOps.exif_transpose(base_handle).convert("RGBA")
+        base_image = ImageOps.exif_transpose(base_handle).convert("RGB")
 
     with Image.open(design_file) as design_handle:
         design_image = ImageOps.exif_transpose(design_handle).convert("RGBA")
@@ -51,6 +70,7 @@ def render_mockup(
         "height": product_view.print_area_height,
     }
 
+    # Calculate target dimensions maintaining aspect ratio
     design_aspect = design_image.width / max(design_image.height, 1)
     max_width_from_height = design_aspect * (print_area["height"] / max(print_area["width"], 1))
     max_width_ratio = min(0.95, max_width_from_height)
@@ -60,6 +80,7 @@ def render_mockup(
     target_width = max(1, int(round(print_area["width"] * width_ratio)))
     target_height = max(1, int(round(target_width / design_aspect)))
 
+    # Calculate position within print area
     max_x = print_area["x"] + print_area["width"] - target_width
     max_y = print_area["y"] + print_area["height"] - target_height
 
@@ -72,16 +93,27 @@ def render_mockup(
     target_x = min(max(target_x, print_area["x"]), max_x)
     target_y = min(max(target_y, print_area["y"]), max_y)
 
-    resized_design = design_image.resize((target_width, target_height), Image.Resampling.LANCZOS)
-    lighting_crop = base_image.crop(
-        (target_x, target_y, target_x + target_width, target_y + target_height)
+    # Clamp rotation
+    rotation = clamp(rotation, -45, 45)
+
+    # Convert images to OpenCV format (BGR)
+    product_cv = pil_to_cv2(base_image)
+    design_cv = pil_to_cv2(design_image)
+
+    # Use OpenCV engine for realistic rendering
+    composite_cv = render_design_on_product(
+        product_cv,
+        design_cv,
+        target_x,
+        target_y,
+        target_width,
+        target_height,
+        rotation=rotation,
     )
-    shaded_design = apply_subtle_lighting(lighting_crop, resized_design)
-    shaded_design = apply_opacity(shaded_design, 0.96)
 
-    composite = base_image.copy()
-    composite.alpha_composite(shaded_design, (target_x, target_y))
-
+    # Convert back to PIL and save
+    composite_pil = cv2_to_pil(composite_cv)
+    
     buffer = BytesIO()
-    composite.save(buffer, format="PNG")
+    composite_pil.save(buffer, format="PNG")
     return buffer.getvalue()
